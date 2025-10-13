@@ -1,0 +1,429 @@
+#include "scisavm.h"
+
+namespace scisavm {
+
+enum class Op {
+	SPECIAL = 0b00000,
+	ADD = 0b00001,
+	SUB = 0b00010,
+	ADC = 0b00011,
+	XOR = 0b00100,
+	AND = 0b00101,
+	OR  = 0b00110,
+	CMP = 0b00111,
+	MVX = 0b01000,
+	MVY = 0b01001,
+	MVA = 0b01010,
+	MHA = 0b01011,
+	SPS = 0b01100,
+	LDX = 0b01101,
+	LDY = 0b01110,
+	LDA = 0b01111,
+	STX = 0b10000,
+	STY = 0b10001,
+	STA = 0b10010,
+	JMP = 0b10011,
+	JLR = 0b10100,
+	B   = 0b10101,
+	BCC = 0b10110,
+	BCS = 0b10111,
+	BEQ = 0b11000,
+	BNE = 0b11001,
+	BMI = 0b11010,
+	BPL = 0b11011,
+	BVS = 0b11100,
+	BVC = 0b11101,
+	PUSH = 0b11110,
+	POP = 0b11111,
+};
+
+enum class SpecOp {
+	NOP = 0b000,
+	LSR = 0b001,
+	ROR = 0b010,
+};
+
+template<typename T>
+class NullOp: public FlagsOp<T> {
+public:
+	static NullOp<T> self;
+
+	bool carry(Flags<T> &) override { return false; }
+	bool zero(Flags<T> &) override { return false; }
+	bool overflow(Flags<T> &) override { return false; }
+};
+template<typename T>
+NullOp<T> NullOp<T>::self;
+
+template<typename T>
+class AddOp: public FlagsOp<T> {
+public:
+	static AddOp<T> self;
+
+	// TODO
+	bool carry(Flags<T> &) override { return false; }
+	bool zero(Flags<T> &) override { return false; }
+	bool overflow(Flags<T> &) override { return false; }
+};
+template<typename T>
+AddOp<T> AddOp<T>::self;
+
+template<typename T>
+class SubOp: public FlagsOp<T> {
+public:
+	static SubOp<T> self;
+
+	// TODO
+	bool carry(Flags<T> &) override { return false; }
+	bool zero(Flags<T> &) override { return false; }
+	bool overflow(Flags<T> &) override { return false; }
+};
+template<typename T>
+SubOp<T> SubOp<T>::self;
+
+template<typename T>
+class AdcOp: public FlagsOp<T> {
+public:
+	static AdcOp<T> self;
+
+	// TODO
+	bool carry(Flags<T> &) override { return false; }
+	bool zero(Flags<T> &) override { return false; }
+	bool overflow(Flags<T> &) override { return false; }
+};
+template<typename T>
+AdcOp<T> AdcOp<T>::self;
+
+template<typename T>
+class ZOp: public FlagsOp<T> {
+public:
+	static ZOp<T> self;
+
+	bool carry(Flags<T> &f) override { return f.c; }
+	bool zero(Flags<T> &f) override { return f.out == 0; }
+	bool overflow(Flags<T> &) override { return false; }
+};
+template<typename T>
+ZOp<T> ZOp<T>::self;
+
+template<typename T>
+T load(CPU<T> &cpu, T addr)
+{
+	for (MappedMem<T> &mem: cpu.dmem) {
+		if (addr >= mem.start && addr < mem.start + mem.data.size()) {
+			return mem.data[addr - mem.start];
+		}
+	}
+
+	for (MappedIO<T> &io: cpu.io) {
+		if (addr >= io.start && addr < io.start + io.size) {
+			return io.io->load(addr - io.start);
+		}
+	}
+
+	cpu.error = "Illegal load";
+	return 0;
+}
+
+template<typename T>
+void store(CPU<T> &cpu, T addr, T val)
+{
+	for (MappedMem<T> &mem: cpu.dmem) {
+		if (addr >= mem.start && addr < mem.start + mem.data.size()) {
+			mem.data[addr - mem.start] = uint8_t(val);
+			return;
+		}
+	}
+
+	for (MappedIO<T> &io: cpu.io) {
+		if (addr >= io.start && addr < io.start + io.size) {
+			io.io->store(addr - io.start, uint8_t(val));
+			return;
+		}
+	}
+
+	cpu.error = "Illegal store";
+}
+
+template<typename T>
+T getParam(CPU<T> &cpu, uint8_t paramMode, uint8_t second)
+{
+	switch (paramMode) {
+	case 0b000:
+		return 0;
+
+	case 0b001:
+		return cpu.x;
+
+	case 0b010:
+		return cpu.y;
+
+	case 0b011:
+		return cpu.acc;
+
+	case 0b100:
+		return second;
+
+	case 0b101:
+		return cpu.x + second;
+
+	case 0b110:
+		return cpu.y + second;
+
+	case 0b111:
+		return cpu.acc + second;
+	}
+
+	// We should never get here,
+	// paramMode is literally & 0x07
+	abort();
+}
+
+template<typename T>
+void step(CPU<T> &cpu, int n)
+{
+	if (cpu.error) {
+		return;
+	}
+
+	for (int i = 0; i < n; ++i) {
+		if (cpu.pc >= cpu.pmem.size()) {
+			cpu.error = "PC out of bounds";
+			return;
+		}
+
+		// Load instruction
+		uint8_t instr = cpu.pmem[cpu.pc++];
+		auto op = Op(instr >> 3);
+		uint8_t paramMode = instr & 0x07;
+
+		// Load second byte of instruction, if it's a 2-byte instruction
+		uint8_t second = 0;
+		bool hasSecond = instr & 0b00000'100;
+		if (hasSecond) {
+			if (cpu.pc >= cpu.pmem.size()) {
+				cpu.error = "PC out of bounds";
+				return;
+			}
+
+			second = cpu.pmem[cpu.pc++];
+		}
+
+		// We don't *always* need the param,
+		// but we *almost* always need the param.
+		// It never *hurts* to call getParam,
+		// so I'm hoping that by pulling the call outside of the switch,
+		// we get better code gen.
+		T param = getParam(cpu, paramMode, second);
+
+		T out, carry;
+		switch (op) {
+		case Op::SPECIAL:
+			switch (SpecOp(paramMode)) {
+			case SpecOp::NOP:
+				break;
+			case SpecOp::LSR:
+				out = cpu.acc >> 1;
+				carry = cpu.acc & 0x01;
+				cpu.flags = { out, 0, 0, carry, &ZOp<T>::self };
+				cpu.acc = out;
+				break;
+			case SpecOp::ROR:
+				carry = cpu.acc & 0x01;
+				out = (cpu.acc >> 1) | (cpu.flags.carry() << (sizeof(T) * 8 - 1));
+				cpu.flags = { out, 0, 0, carry, &ZOp<T>::self };
+				cpu.acc = out;
+				break;
+			default:
+				cpu.error = "Bad special";
+				return;
+			}
+
+			break;
+
+		case Op::ADD:
+			out = cpu.acc + param;
+			cpu.flags = { out, cpu.acc, param, 0, &AddOp<T>::self };
+			cpu.acc = out;
+			break;
+
+		case Op::SUB:
+			out = cpu.acc - param;
+			cpu.flags = { out, cpu.acc, param, 0, &SubOp<T>::self };
+			cpu.acc = out;
+			break;
+
+		case Op::ADC:
+			carry = cpu.flags.carry();
+			out = cpu.acc + param + carry;
+			cpu.flags = { out, cpu.acc, param, carry, &AdcOp<T>::self };
+			cpu.acc = out;
+			break;
+
+		case Op::XOR:
+			out = cpu.acc ^ param;
+			cpu.flags = { out, 0, 0, 0, &ZOp<T>::self };
+			cpu.acc = out;
+			break;
+
+		case Op::AND:
+			out = cpu.acc & param;
+			cpu.flags = { out, 0, 0, 0, &ZOp<T>::self };
+			cpu.acc = cpu.acc & param;
+			break;
+
+		case Op::OR:
+			out = cpu.acc | param;
+			cpu.flags = { out, 0, 0, 0, &ZOp<T>::self };
+			cpu.acc = out;
+			break;
+
+		case Op::CMP:
+			out = cpu.acc - param;
+			cpu.flags = { out, cpu.acc, param, 0, &SubOp<T>::self };
+			break;
+
+		case Op::MVX:
+			cpu.x = param;
+			break;
+
+		case Op::MVY:
+			cpu.y = param;
+			break;
+
+		case Op::MVA:
+			cpu.acc = param;
+			break;
+
+		case Op::MHA:
+			if constexpr (sizeof(T) > sizeof(uint8_t)) {
+				cpu.acc = param << 8;
+			} else {
+				cpu.error = "Invalid instruction for bitness";
+				return;
+			}
+			break;
+
+		case Op::SPS:
+			cpu.sp = param;
+			break;
+
+		case Op::LDX:
+			cpu.x = load(cpu, param);
+			break;
+
+		case Op::LDY:
+			cpu.y = load(cpu, param);
+			break;
+
+		case Op::LDA:
+			cpu.acc = load(cpu, param);
+			break;
+
+		case Op::STX:
+			store(cpu, param, cpu.x);
+			break;
+
+		case Op::STY:
+			store(cpu, param, cpu.y);
+			break;
+
+		case Op::STA:
+			store(cpu, param, cpu.acc);
+			break;
+
+		case Op::JMP:
+			cpu.pc = param;
+			break;
+
+		case Op::JLR:
+			cpu.y = cpu.pc;
+			cpu.pc = param;
+			break;
+
+		case Op::B:
+			cpu.pc += param;
+			break;
+
+		case Op::BCC:
+			if (!cpu.flags.carry()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::BCS:
+			if (cpu.flags.carry()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::BEQ:
+			if (cpu.flags.zero()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::BNE:
+			if (!cpu.flags.zero()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::BMI:
+			if (cpu.flags.negative()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::BPL:
+			if (!cpu.flags.negative()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::BVS:
+			if (cpu.flags.overflow()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::BVC:
+			if (!cpu.flags.overflow()) {
+				cpu.pc += param;
+			}
+			break;
+
+		case Op::PUSH:
+			store(cpu, cpu.sp, param);
+			cpu.sp += sizeof(T);
+			break;
+
+		case Op::POP:
+			cpu.sp -= sizeof(T);
+			out = load(cpu, --cpu.sp);
+			switch (param) {
+			case 0b000:
+				break;
+			case 0b001:
+				cpu.x = out;
+				break;
+			case 0b010:
+				cpu.y = out;
+				break;
+			case 0b011:
+				cpu.acc = out;
+				break;
+			default:
+				cpu.error = "Invalid pop";
+				return;
+			}
+
+			break;
+		}
+	}
+}
+
+void step8(CPU8 &cpu, int n) { step(cpu, n); }
+void step16(CPU16 &cpu, int n) { step(cpu, n); }
+
+}

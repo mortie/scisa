@@ -65,3 +65,5 @@ while True:
         num = int(s, 2)
         sys.stdout.buffer.write(bytes([num]))
         s = ""
+
+assert s == ""

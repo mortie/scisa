@@ -192,6 +192,8 @@ void step(CPU<T> &cpu, int n)
 			return;
 		}
 
+		auto pc = cpu.pc;
+
 		// Load instruction
 		uint8_t instr = cpu.pmem[cpu.pc++];
 		auto op = Op(instr >> 3);
@@ -342,54 +344,54 @@ void step(CPU<T> &cpu, int n)
 			break;
 
 		case Op::B:
-			cpu.pc += param;
+			cpu.pc = pc + param;
 			break;
 
 		case Op::BCC:
 			if (!cpu.flags.carry()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 
 		case Op::BCS:
 			if (cpu.flags.carry()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 
 		case Op::BEQ:
 			if (cpu.flags.zero()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 
 		case Op::BNE:
 			if (!cpu.flags.zero()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 
 		case Op::BMI:
 			if (cpu.flags.negative()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 
 		case Op::BPL:
 			if (!cpu.flags.negative()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 
 		case Op::BVS:
 			if (cpu.flags.overflow()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 
 		case Op::BVC:
 			if (!cpu.flags.overflow()) {
-				cpu.pc += param;
+				cpu.pc = pc + param;
 			}
 			break;
 

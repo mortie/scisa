@@ -17,7 +17,7 @@ Some instructions update the following flags:
 
 * C: Carry. This is set if the carry out of the ALU is 1.
 * Z: Zero. This is set if the output of the ALU is all 0s.
-* V: Overflow. This is set if the ALU operation results in a signed overflow.
+* V: Overflow. This is set if add/adc/sub/cmp results in a signed overflow.
 * N: Negative. This is set if the high bit of the ALU's output is set.
 
 ## Instruction format

@@ -44,55 +44,31 @@ enum class SpecOp {
 };
 
 template<typename T>
-class NullOp: public FlagsOp<T> {
-public:
-	static NullOp<T> self;
-
-	bool carry(Flags<T> &) override { return false; }
-	bool zero(Flags<T> &) override { return false; }
-	bool overflow(Flags<T> &) override { return false; }
-};
-template<typename T>
-NullOp<T> NullOp<T>::self;
-
-template<typename T>
 class AddOp: public FlagsOp<T> {
 public:
 	static AddOp<T> self;
 
-	// TODO
-	bool carry(Flags<T> &) override { return false; }
-	bool zero(Flags<T> &) override { return false; }
-	bool overflow(Flags<T> &) override { return false; }
+	bool carry(Flags<T> &f) override
+	{
+		static_assert(sizeof(uint32_t) > sizeof(T));
+		uint32_t out = uint32_t(f.a) + uint32_t(f.b) + uint32_t(f.c);
+		return out & (1 << (8 * sizeof(T)));
+	}
+
+	bool overflow(Flags<T> &f) override
+	{
+		auto aSign = f.a & (1 << (sizeof(T) * 8 - 1));
+		auto bSign = f.b & (1 << (sizeof(T) * 8 - 1));
+		if (aSign == bSign) {
+			auto outSign = f.out & (1 << (sizeof(T) * 8 - 1));
+			return aSign != outSign;
+		} else {
+			return false;
+		}
+	}
 };
 template<typename T>
 AddOp<T> AddOp<T>::self;
-
-template<typename T>
-class SubOp: public FlagsOp<T> {
-public:
-	static SubOp<T> self;
-
-	// TODO
-	bool carry(Flags<T> &) override { return false; }
-	bool zero(Flags<T> &) override { return false; }
-	bool overflow(Flags<T> &) override { return false; }
-};
-template<typename T>
-SubOp<T> SubOp<T>::self;
-
-template<typename T>
-class AdcOp: public FlagsOp<T> {
-public:
-	static AdcOp<T> self;
-
-	// TODO
-	bool carry(Flags<T> &) override { return false; }
-	bool zero(Flags<T> &) override { return false; }
-	bool overflow(Flags<T> &) override { return false; }
-};
-template<typename T>
-AdcOp<T> AdcOp<T>::self;
 
 template<typename T>
 class ZOp: public FlagsOp<T> {
@@ -100,7 +76,6 @@ public:
 	static ZOp<T> self;
 
 	bool carry(Flags<T> &f) override { return f.c; }
-	bool zero(Flags<T> &f) override { return f.out == 0; }
 	bool overflow(Flags<T> &) override { return false; }
 };
 template<typename T>
@@ -251,14 +226,14 @@ void step(CPU<T> &cpu, int n)
 
 		case Op::SUB:
 			out = cpu.acc - param;
-			cpu.flags = { out, cpu.acc, param, 0, &SubOp<T>::self };
+			cpu.flags = { out, cpu.acc, T(~param), 1, &AddOp<T>::self };
 			cpu.acc = out;
 			break;
 
 		case Op::ADC:
 			carry = cpu.flags.carry();
 			out = cpu.acc + param + carry;
-			cpu.flags = { out, cpu.acc, param, carry, &AdcOp<T>::self };
+			cpu.flags = { out, cpu.acc, param, carry, &AddOp<T>::self };
 			cpu.acc = out;
 			break;
 
@@ -282,7 +257,7 @@ void step(CPU<T> &cpu, int n)
 
 		case Op::CMP:
 			out = cpu.acc - param;
-			cpu.flags = { out, cpu.acc, param, 0, &SubOp<T>::self };
+			cpu.flags = { out, cpu.acc, T(~param), 1, &AddOp<T>::self };
 			break;
 
 		case Op::MVX:
@@ -425,7 +400,16 @@ void step(CPU<T> &cpu, int n)
 	}
 }
 
+template<typename T>
+void init(CPU<T> &cpu)
+{
+	cpu.flags.op = &ZOp<T>::self;
+}
+
 void step8(CPU8 &cpu, int n) { step(cpu, n); }
+void init8(CPU8 &cpu) { init(cpu); }
+
 void step16(CPU16 &cpu, int n) { step(cpu, n); }
+void init16(CPU16 &cpu) { init(cpu); }
 
 }

@@ -20,6 +20,11 @@ void dumpCPU(scisavm::CPU<T> &cpu)
 		<< "PC " << int(cpu.pc) << "; SP " << int(cpu.sp) << '\n'
 		<< "ACC " << int(cpu.acc) << "; X " << int(cpu.x)
 		<< "; Y " << int(cpu.y) << '\n';
+	std::cout
+		<< 'Z' << cpu.flags.zero() << ' '
+		<< 'C' << cpu.flags.carry() << ' '
+		<< 'N' << cpu.flags.negative() << ' '
+		<< 'V' << cpu.flags.overflow() << '\n';
 	if (cpu.pc < cpu.pmem.size()) {
 		std::cout << "INST ";
 		dumpBits(cpu.pmem[cpu.pc]);

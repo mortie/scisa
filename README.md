@@ -59,9 +59,9 @@ Instructions where `yyy` starts with a `1` bit are 2-byte.
 * `01010`: MVA, Move A; A = param
 * `01011`: MHA\*\*, Move High A; A = param << 8
 * `01100`: SPS, Stack Pointer Set; SP = param
-* `01101`: LDX, Load X; X = \[value at memory address specified by param\]
-* `01110`: LDY, Load Y; Y = \[value at memory address specified by param\]
-* `01111`: LDA, Load A; A = \[value at memory address specified by param\]
+* `01101`: LDX\*, Load X; X = \[value at memory address specified by param\]
+* `01110`: LDY\*, Load Y; Y = \[value at memory address specified by param\]
+* `01111`: LDA\*, Load A; A = \[value at memory address specified by param\]
 * `10000`: STX, Store X; \[value at memory address specified by param\] = X
 * `10001`: STY, Store Y; \[value at memory address specified by param\] = Y
 * `10010`: STA, Store A; \[value at memory address specified by param\] = A
@@ -92,6 +92,8 @@ Aliases:
 * `00011 011`: ROL\*, Rotate Left; Equivalent to ADC A
 * `10110`: BLT, Branch if Less Than; Jump to \[PC + param\] if C is clear
 * `10111`: BGE, Branch if Less Than or Equal; Jump to \[PC + param\] if C is set
+* `11000`: BZS, Branch if Zero is Set; Jump to \[PC + param\] if Z is set
+* `11001`: BZC, Branch if Zero is Clear; Jump to \[PC + param\] if Z is clear
 
 \*: Instruction updates flags
 

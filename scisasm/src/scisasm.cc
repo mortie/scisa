@@ -414,11 +414,11 @@ static int emitInstr(
 		return emitNormal(0b10111, param, RELATIVE, a, err);
 	}
 
-	if (op == "BEQ") {
+	if (op == "BEQ" || op == "BZS") {
 		return emitNormal(0b11000, param, RELATIVE, a, err);
 	}
 
-	if (op == "BNE") {
+	if (op == "BNE" || op == "BZC") {
 		return emitNormal(0b11001, param, RELATIVE, a, err);
 	}
 

@@ -293,14 +293,17 @@ void step(CPU<T> &cpu, int n)
 
 		case Op::LDX:
 			cpu.x = load(cpu, param);
+			cpu.flags = { cpu.x, 0, 0, 0, &ZOp<T>::self };
 			break;
 
 		case Op::LDY:
 			cpu.y = load(cpu, param);
+			cpu.flags = { cpu.y, 0, 0, 0, &ZOp<T>::self };
 			break;
 
 		case Op::LDA:
 			cpu.acc = load(cpu, param);
+			cpu.flags = { cpu.acc, 0, 0, 0, &ZOp<T>::self };
 			break;
 
 		case Op::STX:

@@ -84,6 +84,7 @@ Special instructions:
 * `00000 000`: NOP, do nothing.
 * `00000 001`: LSR\*, logical Shift Right; A = A >> 1, C = shifted-out bit
 * `00000 010`: ROR\*, Rotate Right; A = A >> 1, set low bit to C, C = shifted-out bit
+* `00000 011`: INC\*, Increment; A = A + 1
 
 Aliases:
 

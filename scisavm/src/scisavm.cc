@@ -41,6 +41,7 @@ enum class SpecOp {
 	NOP = 0b000,
 	LSR = 0b001,
 	ROR = 0b010,
+	INC = 0b011,
 };
 
 template<typename T>
@@ -209,6 +210,11 @@ void step(CPU<T> &cpu, int n)
 				carry = cpu.acc & 0x01;
 				out = (cpu.acc >> 1) | (cpu.flags.carry() << (sizeof(T) * 8 - 1));
 				cpu.flags = { out, 0, 0, carry, &ZOp<T>::self };
+				cpu.acc = out;
+				break;
+			case SpecOp::INC:
+				out = cpu.acc + 1;
+				cpu.flags = { out, cpu.acc, 1, 0, &AddOp<T>::self };
 				cpu.acc = out;
 				break;
 			default:

@@ -50,7 +50,7 @@ struct Assembly {
 
 int assemble(std::istream &is, Assembly &a, const char **err);
 int link(Assembly &a, const char **err);
-void disasm(std::span<const uint8_t> instr, std::string &out);
+int disasm(std::span<const uint8_t> instr, std::string &out);
 
 }
 

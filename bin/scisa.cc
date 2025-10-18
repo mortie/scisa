@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <scisasm.h>
 #include <scisavm.h>
 
@@ -255,7 +256,15 @@ int main(int argc, char **argv)
 	if (argv[1] == "dis"sv && argc == 3) {
 		Computer comp;
 		setupComputer(comp, argv[2]);
-		return runCPU(comp.cpu);
+		int idx = 0;
+		std::string str;
+		char buf[8];
+		while (idx < int(comp.cpu.pmem.size())) {
+			snprintf(buf, sizeof(buf), "0x%04x", int(idx));
+			idx += scisasm::disasm(comp.cpu.pmem.subspan(idx), str);
+			std::cout << buf << ' ' << str << '\n';
+		}
+		return 0;
 	}
 
 	usage(argv[0]);

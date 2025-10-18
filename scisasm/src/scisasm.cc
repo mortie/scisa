@@ -314,6 +314,10 @@ static int emitInstr(
 		return emitSpecial(0b010, param, a, err);
 	}
 
+	if (op == "INC") {
+		return emitSpecial(0b011, param, a, err);
+	}
+
 	if (op == "ROL") {
 		return emitSpecial(0b00011'011, param, a, err);
 	}
@@ -763,11 +767,11 @@ int link(Assembly &a, const char **err)
 	return 0;
 }
 
-void disasm(std::span<const uint8_t> instr, std::string &out)
+int disasm(std::span<const uint8_t> instr, std::string &out)
 {
 	if (instr.size() == 0) {
 		out = "OOB";
-		return;
+		return 1;
 	}
 
 	uint8_t op = instr[0] >> 3;
@@ -778,17 +782,20 @@ void disasm(std::span<const uint8_t> instr, std::string &out)
 		switch (param) {
 		case 0b000:
 			out = "NOP";
-			return;
+			return 1;
 		case 0b001:
 			out = "LSR";
-			return;
+			return 1;
 		case 0b010:
 			out = "ROR";
-			return;
+			return 1;
+		case 0b011:
+			out = "INC";
+			return 1;
 		}
 
 		out = "BAD SPECIAL";
-		return;
+		return 1;
 	case 0b00001:
 		out = "ADD";
 		break;
@@ -883,27 +890,27 @@ void disasm(std::span<const uint8_t> instr, std::string &out)
 		switch (param) {
 		case 0b000:
 			out = "POP VOID";
-			return;
+			return 1;
 		case 0b001:
 			out = "POP %X";
-			return;
+			return 1;
 		case 0b010:
 			out = "POP %Y";
-			return;
+			return 1;
 		case 0b011:
 			out = "POP %A";
-			return;
+			return 1;
 		}
 
 		out = "BAD POP";
-		return;
+		return 1;
 	}
 
 	uint8_t next = 0;
 	if (param & 0b100) {
 		if (instr.size() < 2) {
 			out += " OOB";
-			return;
+			return 1;
 		}
 
 		next = instr[1];
@@ -912,33 +919,35 @@ void disasm(std::span<const uint8_t> instr, std::string &out)
 	switch (param) {
 	case 0b000:
 		out += " 0";
-		break;
+		return 1;
 	case 0b001:
 		out += " %X";
-		break;
+		return 1;
 	case 0b010:
 		out += " %Y";
-		break;
+		return 1;
 	case 0b011:
 		out += " %A";
-		break;
+		return 1;
 	case 0b100:
 		out += " ";
 		out += std::to_string(next);
-		break;
+		return 2;
 	case 0b101:
 		out += " %X + ";
 		out += std::to_string(next);
-		break;
+		return 2;
 	case 0b110:
 		out += " %Y + ";
 		out += std::to_string(next);
-		break;
+		return 2;
 	case 0b111:
 		out += " %A + ";
 		out += std::to_string(next);
-		break;
+		return 2;
 	}
+
+	return 1;
 }
 
 }

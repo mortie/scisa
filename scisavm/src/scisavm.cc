@@ -377,8 +377,8 @@ void step(CPU<T> &cpu, int n)
 
 		case Op::POP:
 			cpu.sp -= sizeof(T);
-			out = load(cpu, --cpu.sp);
-			switch (param) {
+			out = load(cpu, cpu.sp);
+			switch (paramMode) {
 			case 0b000:
 				break;
 			case 0b001:

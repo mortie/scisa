@@ -83,12 +83,12 @@ Special instructions:
 
 * `00000 000`: NOP, do nothing.
 * `00000 001`: LSR\*, logical Shift Right; A = A >> 1, C = shifted-out bit
-* `00000 010`: ROR\*, Rotate Right; A = A << 1, set low bit to C, C = shifted-out bit
+* `00000 010`: ROR\*, Rotate Right; A = A >> 1, set low bit to C, C = shifted-out bit
 
 Aliases:
 
 * `00001 011`: LSL\*, Logical Shift Left; Equivalent to ADD A
-* `00011 011`: ROL\*, Logical Shift Right; Equivalent to ADC A
+* `00011 011`: ROL\*, Rotate Left; Equivalent to ADC A
 * `10110`: BLT, Branch if Less Than; Jump to \[PC + param\] if C is clear
 * `10111`: BGE, Branch if Less Than or Equal; Jump to \[PC + param\] if C is set
 

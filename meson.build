@@ -29,5 +29,6 @@ scisa = executable(
   'bin/scisa.cc',
   dependencies: [
     libscisavm,
+    libscisasm,
   ],
 )

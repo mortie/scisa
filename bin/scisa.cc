@@ -1,20 +1,13 @@
+#include "scisasm/include/scisasm.h"
 #include <scisavm.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
-
-void dumpBits(uint8_t val) {
-	char buf[9];
-	for (int i = 0; i < 8; ++i) {
-		buf[i] = (val & 1 << (7 - i)) ? '1' : '0';
-	}
-	buf[8] = '\0';
-	std::cout << buf;
-}
+#include <string_view>
 
 template<typename T>
-void dumpCPU(scisavm::CPU<T> &cpu)
+static void dumpCPU(scisavm::CPU<T> &cpu)
 {
 	std::cout
 		<< "PC " << int(cpu.pc) << "; SP " << int(cpu.sp) << '\n'
@@ -25,25 +18,43 @@ void dumpCPU(scisavm::CPU<T> &cpu)
 		<< 'C' << cpu.flags.carry() << ' '
 		<< 'N' << cpu.flags.negative() << ' '
 		<< 'V' << cpu.flags.overflow() << '\n';
-	if (cpu.pc < cpu.pmem.size()) {
-		std::cout << "INST ";
-		dumpBits(cpu.pmem[cpu.pc]);
-		std::cout << '\n';
-	} else {
-		std::cout << "INSTR OOB\n";
-	}
+
+	std::string disasm;
+	scisasm::disasm(cpu.pmem.subspan(cpu.pc), disasm);
+	std::cout << disasm << '\n';
 }
 
-int main(int argc, char **argv)
+static int runCPU(std::span<uint8_t> pmem)
 {
-	if (argc != 2) {
-		printf("Usage: %s <source>\n", argv[0]);
-		return 1;
+	scisavm::CPU8 cpu;
+	cpu.pmem = pmem;
+
+	uint8_t dmem[256];
+	cpu.dmem.push_back({
+		.start = 0,
+		.data = dmem,
+	});
+
+	dumpCPU(cpu);
+	std::string line;
+	while (std::getline(std::cin, line)) {
+		cpu.step(1);
+		if (cpu.error) {
+			std::cout << "Error: " << cpu.error << '\n';
+			return 1;
+		}
+
+		dumpCPU(cpu);
 	}
 
-	std::fstream f(argv[1]);
+	return 1;
+}
+
+static int runFile(char *path)
+{
+	std::fstream f(path);
 	if (f.bad()) {
-		std::cerr << "Failed to open " << argv[1] << '\n';
+		std::cerr << "Failed to open " << path << '\n';
 		return 1;
 	}
 
@@ -55,21 +66,77 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	scisavm::CPU8 cpu;
-	std::string pmem = std::move(ss).str();
-	cpu.pmem = std::span{ (uint8_t *)pmem.data(), pmem.size() };
+	std::string str = std::move(ss).str();
+	auto pmem = std::span((uint8_t *)str.data(), str.size());
+	return runCPU(pmem);
+}
 
-	dumpCPU(cpu);
-	std::string line;
-	while (std::getline(std::cin, line)) {
-		cpu.step(1);
-		if (cpu.error) {
-			std::cout << "Error: " << cpu.error << '\n';
-			break;
-		}
-
-		dumpCPU(cpu);
+static int assemble(std::istream &is, std::ostream &os)
+{
+	if (is.bad()) {
+		std::cerr << "Input error\n";
+		return 1;
 	}
 
+	if (os.bad()) {
+		std::cerr << "Output error\n";
+		return 1;
+	}
+
+	scisasm::Assembly a;
+	const char *err;
+	if (scisasm::assemble(is, a, &err) < 0) {
+		std::cerr << "Assembler error: " << err << '\n';
+		return 1;
+	}
+
+	if (scisasm::link(a, &err) < 0) {
+		std::cerr << "Linker error: " << err << '\n';
+		return 1;
+	}
+
+	os.write((const char *)a.output.data(), a.output.size());
+	if (os.bad()) {
+		std::cerr << "Output error\n";
+		return 1;
+	}
+
+	return 0;
+}
+
+static void usage(const char *argv0)
+{
+	printf("Usage: %s run <file>\n", argv0);
+	printf("Usage: %s asm [infile] [outfile]\n", argv0);
+}
+
+int main(int argc, char **argv)
+{
+	using namespace std::literals;
+
+	if (argc < 2) {
+		usage(argv[0]);
+		return 1;
+	}
+
+	if (argv[1] == "run"sv && argc == 3) {
+		return runFile(argv[2]);
+	}
+
+	if (argv[1] == "asm"sv && argc <= 4) {
+		if (argc == 2) {
+			return assemble(std::cin, std::cout);
+		}
+
+		std::fstream is(argv[2]);
+		if (argc == 3) {
+			return assemble(is, std::cout);
+		}
+
+		std::fstream os(argv[3]);
+		return assemble(is, os);
+	}
+
+	usage(argv[0]);
 	return 0;
 }

@@ -1,6 +1,4 @@
 #include "scisasm.h"
-#include <iostream>
-#include <string>
 
 namespace scisasm {
 
@@ -38,7 +36,7 @@ static bool chIsInitialIdent(char ch)
 	return
 		(ch >= 'a' && ch <= 'z') ||
 		(ch >= 'A' && ch <= 'Z') ||
-		ch == '_' || ch == '-';
+		ch == '_' || ch == '-' || ch == '$';
 }
 
 static bool chIsIdent(char ch)
@@ -148,7 +146,7 @@ static int emitSpecial(
 		return -1;
 	}
 
-	a.output.push_back(lo);
+	a.current().push_back(lo);
 	return 0;
 }
 
@@ -169,69 +167,79 @@ static int emitNormal(
 	}
 
 	if (param == "%X") {
-		a.output.push_back(hi | 0b001);
+		a.current().push_back(hi | 0b001);
 		return 0;
 	}
 
 	if (param == "%Y") {
-		a.output.push_back(hi | 0b010);
+		a.current().push_back(hi | 0b010);
 		return 0;
 	}
 
 	if (param == "%A") {
-		a.output.push_back(hi | 0b011);
+		a.current().push_back(hi | 0b011);
 		return 0;
 	}
 
+	// Handle a constant number literal
 	if (strIsNumeric(param)) {
 		int num = parseNumeric(param);
 		if (num == 0) {
-			a.output.push_back(hi | 0b000);
+			a.current().push_back(hi | 0b000);
 			return 0;
 		}
 
-		a.output.push_back(hi | 0b100);
-		a.output.push_back(uint8_t(num));
+		a.current().push_back(hi | 0b100);
+		a.current().push_back(uint8_t(num));
 		return 0;
 	}
 
+	// Handle a constant label
 	if (strIsIdent(param)) {
-		a.output.push_back(hi | 0b100);
+		a.current().push_back(hi | 0b100);
+
+		auto it = a.defines.find(param);
+		if (it != a.defines.end()) {
+			a.current().push_back(uint8_t(it->second));
+			return 0;
+		}
+
 		Relocation reloc = {
-			.index = a.output.size(),
+			.index = a.current().size(),
 		};
 
 		switch (rel) {
 		case RELATIVE:
 			reloc.substitute = Relocation::Relative {
-				.name = param,
+				.label = param,
 				.offset = -1,
 			};
 			break;
 		case ABSOLUTE:
 			reloc.substitute = Relocation::Absolute {
-				.name = param,
+				.label = param,
 			};
 			break;
 		};
 
 		a.relocations.push_back(std::move(reloc));
-		a.output.push_back(0);
+		a.current().push_back(0);
 		return 0;
 	}
 
+	// Handle register + constant
 	if (param[0] == '%') {
 		Reader r(param);
 		r.consume();
 		switch (r.peek()) {
 		case 'X':
-			a.output.push_back(hi | 0b101);
+			a.current().push_back(hi | 0b101);
 			break;
 		case 'Y':
-			a.output.push_back(hi | 0b110);
+			a.current().push_back(hi | 0b110);
 			break;
 		case 'A':
-			a.output.push_back(hi | 0b111);
+			a.current().push_back(hi | 0b111);
 			break;
 		default:
 			error(err, "Bad register");
@@ -251,25 +259,32 @@ static int emitNormal(
 		auto rest = r.rest();
 
 		if (strIsIdent(rest)) {
+			std::string restStr = std::string(rest);
+			auto it = a.defines.find(restStr);
+			if (it != a.defines.end()) {
+				a.current().push_back(uint8_t(it->second));
+				return 0;
+			}
+
 			Relocation reloc = {
-				.index = a.output.size(),
+				.index = a.current().size(),
 				.substitute = Relocation::Absolute {
-					.name = param,
+					.label = param,
 				},
 			};
 			a.relocations.push_back(std::move(reloc));
-			a.output.push_back(0);
+			a.current().push_back(0);
 			return 0;
 		}
 
 		if (strIsNumeric(rest)) {
 			int num = parseNumeric(rest);
 			if (num == 0) {
-				a.output.push_back(hi | 0b000);
+				a.current().push_back(hi | 0b000);
 				return 0;
 			}
 
-			a.output.push_back(uint8_t(num));
+			a.current().push_back(uint8_t(num));
 			return 0;
 		}
 	}
@@ -323,7 +338,7 @@ static int emitInstr(
 		return emitNormal(0b00101, param, ABSOLUTE, a, err);
 	}
 
-	if (op == "OR ") {
+	if (op == "OR") {
 		return emitNormal(0b00110, param, ABSOLUTE, a, err);
 	}
 
@@ -425,22 +440,22 @@ static int emitInstr(
 
 	if (op == "POP") {
 		if (param == "VOID") {
-			a.output.push_back(0b11111'000);
+			a.current().push_back(0b11111'000);
 			return 0;
 		}
 
 		if (param == "%X") {
-			a.output.push_back(0b11111'001);
+			a.current().push_back(0b11111'001);
 			return 0;
 		}
 
 		if (param == "%Y") {
-			a.output.push_back(0b11111'010);
+			a.current().push_back(0b11111'010);
 			return 0;
 		}
 
 		if (param == "%A") {
-			a.output.push_back(0b11111'011);
+			a.current().push_back(0b11111'011);
 			return 0;
 		}
 
@@ -449,6 +464,154 @@ static int emitInstr(
 	}
 
 	error(err, "Unknown instruction");
+	return -1;
+}
+
+static int handleDirective(
+	const std::string &op,
+	const std::string &param,
+	Assembly &a,
+	const char **err)
+{
+	if (op == ".TEXT") {
+		if (param != "") {
+			error(err, "No parameter expected");
+			return -1;
+		}
+
+		a.currentSection = &Assembly::text;
+		return 0;
+	}
+
+	if (op == ".DATA") {
+		if (param != "") {
+			error(err, "No parameter expected");
+			return -1;
+		}
+
+		a.currentSection = &Assembly::data;
+		return 0;
+	}
+
+	if (op == ".ASCII" || op == ".STRING") {
+		Reader r(param);
+		if (r.peek() != '"') {
+			error(err, "Expected '\"'");
+			return -1;
+		}
+		r.consume();
+
+		auto &data = a.current();
+		while (true) {
+			if (r.eof()) {
+				error(err, "Unexpected EOF");
+				return -1;
+			}
+
+			char ch = r.peek();
+			r.consume();
+			if (ch == '"') {
+				break;
+			}
+
+			if (ch == '\\') {
+				if (r.eof()) {
+					error(err, "Unexpected EOF");
+					return -1;
+				}
+
+				ch = r.peek();
+				r.consume();
+				if (ch == '\\' || ch == '"') {
+					data.push_back(ch);
+				} else if (ch == 'n') {
+					data.push_back('\n');
+				} else if (ch == 'r') {
+					data.push_back('\r');
+				} else if (ch == 't') {
+					data.push_back('\t');
+				} else if (ch == '0') {
+					data.push_back(0);
+				} else {
+					error(err, "Unexpected escape");
+					return -1;
+				}
+			} else {
+				data.push_back(ch);
+			}
+		}
+
+		skipSpace(r);
+		if (!r.eof()) {
+			error(err, "Trailing garbage");
+			return -1;
+		}
+
+		if (op == ".STRING") {
+			data.push_back(0);
+		}
+
+		return 0;
+	}
+
+	if (op == ".BYTE") {
+		if (!strIsNumeric(param)) {
+			error(err, "Invalid parameter");
+			return -1;
+		}
+
+		a.current().push_back(parseNumeric(param));
+		return 0;
+	}
+
+	if (op == ".WORD") {
+		if (!strIsNumeric(param)) {
+			error(err, "Invalid parameter");
+			return -1;
+		}
+
+		uint16_t num = uint16_t(parseNumeric(param));
+		a.current().push_back(num & 0x00ff);
+		a.current().push_back((num & 0xff00) >> 8);
+		return 0;
+	}
+
+	if (op == ".DEFINE") {
+		Reader r(param);
+		if (!chIsInitialIdent(r.peek())) {
+			error(err, "Invalid identifier");
+			return -1;
+		}
+
+		std::string key;
+		do {
+			key += r.peek();
+			r.consume();
+		} while (chIsIdent(r.peek()));
+		upper(key);
+
+		skipSpace(r);
+		std::string val;
+		while (!r.eof()) {
+			val += r.peek();
+			r.consume();
+		}
+
+		if (!strIsNumeric(val)) {
+			error(err, "Invalid value");
+			return -1;
+		}
+
+		if (a.defines.contains(key)) {
+			error(err, "Duplicate define");
+			return -1;
+		}
+
+		a.defines[key] = parseNumeric(val);
+		return 0;
+	}
+
+	error(err, "Invalid directive");
 	return -1;
 }
 
@@ -473,7 +636,7 @@ int assemble(std::istream &is, Assembly &a, const char **err)
 		}
 
 		op.clear();
-		if (chIsInitialIdent(r.peek())) {
+		if (chIsInitialIdent(r.peek()) || r.peek() == '.') {
 			do {
 				op += r.peek();
 				r.consume();
@@ -501,7 +664,10 @@ int assemble(std::istream &is, Assembly &a, const char **err)
 				return -1;
 			}
 
-			a.labels[op] = a.output.size();
+			a.labels[op] = {
+				.section = a.currentSection,
+				.offset = a.current().size(),
+			};
 			continue;
 		}
 
@@ -517,12 +683,22 @@ int assemble(std::istream &is, Assembly &a, const char **err)
 			r.consume();
 		}
 
-		param.erase(lastNonWhitespace + 1);
+		if (lastNonWhitespace < param.size()) {
+			param.erase(lastNonWhitespace + 1);
+		}
 
 		skipSpace(r);
 		if (!r.eof()) {
 			error(err, "Unexpected trailing garbage after instruction");
 			return -1;
+		}
+
+		if (op[0] == '.') {
+			if (handleDirective(op, param, a, err) < 0) {
+				return -1;
+			}
+
+			continue;
 		}
 
 		upper(param);
@@ -537,43 +713,45 @@ int assemble(std::istream &is, Assembly &a, const char **err)
 int link(Assembly &a, const char **err)
 {
 	for (auto &reloc: a.relocations) {
-		if (reloc.index >= a.output.size()) {
-			error(err, "Relocation out of bounds");
-			return -1;
-		}
-
 		auto &sub = reloc.substitute;
 		if (auto *r = std::get_if<Relocation::Relative>(&sub); r) {
-			auto it = a.labels.find(r->name);
+			auto it = a.labels.find(r->label);
 			if (it == a.labels.end()) {
 				error(err, "Invalid relative relocation");
 				return -1;
 			}
 
-			int rel = int(it->second) - (int(reloc.index) + r->offset);
+			auto &section = a.*it->second.section;
+			int rel =
+				int(it->second.offset) +
+				int(section.offset) -
+				(int(reloc.index) + r->offset);
+
 			if (rel > 127 || rel < -128) {
 				error(err, "Relative relocation out of range");
 				return -1;
 			}
 
-			a.output[reloc.index] = uint8_t(rel);
+			a.text.content[reloc.index] = uint8_t(rel);
 			continue;
 		}
 
 		if (auto *r = std::get_if<Relocation::Absolute>(&sub); r) {
-			auto it = a.labels.find(r->name);
+			auto it = a.labels.find(r->label);
 			if (it == a.labels.end()) {
 				error(err, "Invalid absolute relocation");
 				return -1;
 			}
 
-			size_t abs = it->second;
+			auto &section = a.*it->second.section;
+			size_t abs = it->second.offset + section.offset;
+
 			if (abs > 255) {
 				error(err, "Absolute relocation out of range");
 				return -1;
 			}
 
-			a.output[reloc.index] = uint8_t(abs);
+			a.text.content[reloc.index] = uint8_t(abs);
 			continue;
 		}
 

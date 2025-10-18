@@ -84,15 +84,15 @@ ZOp<T> ZOp<T>::self;
 template<typename T>
 T load(CPU<T> &cpu, T addr)
 {
-	for (MappedMem<T> &mem: cpu.dmem) {
-		if (addr >= mem.start && addr < mem.start + mem.data.size()) {
-			return mem.data[addr - mem.start];
-		}
-	}
-
 	for (MappedIO<T> &io: cpu.io) {
 		if (addr >= io.start && addr < io.start + io.size) {
 			return io.io->load(addr - io.start);
+		}
+	}
+
+	for (MappedMem<T> &mem: cpu.dmem) {
+		if (addr >= mem.start && addr < mem.start + mem.data.size()) {
+			return mem.data[addr - mem.start];
 		}
 	}
 
@@ -103,16 +103,16 @@ T load(CPU<T> &cpu, T addr)
 template<typename T>
 void store(CPU<T> &cpu, T addr, T val)
 {
-	for (MappedMem<T> &mem: cpu.dmem) {
-		if (addr >= mem.start && addr < mem.start + mem.data.size()) {
-			mem.data[addr - mem.start] = uint8_t(val);
+	for (MappedIO<T> &io: cpu.io) {
+		if (addr >= io.start && addr < io.start + io.size) {
+			io.io->store(addr - io.start, uint8_t(val));
 			return;
 		}
 	}
 
-	for (MappedIO<T> &io: cpu.io) {
-		if (addr >= io.start && addr < io.start + io.size) {
-			io.io->store(addr - io.start, uint8_t(val));
+	for (MappedMem<T> &mem: cpu.dmem) {
+		if (addr >= mem.start && addr < mem.start + mem.data.size()) {
+			mem.data[addr - mem.start] = uint8_t(val);
 			return;
 		}
 	}

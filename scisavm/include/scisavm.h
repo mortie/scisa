@@ -10,6 +10,7 @@ namespace scisavm {
 
 class MemoryIO {
 public:
+	virtual ~MemoryIO() = default;
 	virtual uint8_t load(size_t) { return 0; }
 	virtual void store(size_t, uint8_t) {}
 };
@@ -37,6 +38,7 @@ struct Flags;
 template<typename T>
 class FlagsOp {
 public:
+	virtual ~FlagsOp() = default;
 	virtual bool carry(Flags<T> &f) = 0;
 	virtual bool overflow(Flags<T> &f) = 0;
 };

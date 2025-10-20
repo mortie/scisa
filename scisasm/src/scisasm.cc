@@ -669,8 +669,8 @@ int assemble(std::istream &is, Assembly &a, const char **err)
 			}
 
 			a.labels[op] = {
-				.section = a.currentSection,
 				.offset = a.current().size(),
+				.section = a.currentSection,
 			};
 			continue;
 		}

@@ -14,6 +14,11 @@ libscisavm = declare_dependency(
     include_directories: ['scisavm/include']
   ),
 )
+install_headers(
+  'scisavm/include/scisavm.h',
+  subdir: 'scisa',
+)
+
 
 libscisasm = declare_dependency(
   include_directories: 'scisasm/include',
@@ -22,6 +27,10 @@ libscisasm = declare_dependency(
     install: true,
     include_directories: ['scisasm/include']
   ),
+)
+install_headers(
+  'scisasm/include/scisasm.h',
+  subdir: 'scisa',
 )
 
 scisa = executable(

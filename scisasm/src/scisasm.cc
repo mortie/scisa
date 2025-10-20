@@ -26,6 +26,24 @@ private:
 	const std::string &str_;
 };
 
+static char upper(char ch)
+{
+	// a..z - 32 maps to A..Z in ASCII
+	if (ch >= 'a' && ch <= 'z') {
+		return ch - 32;
+	} else {
+		return ch;
+	}
+}
+
+static void upper(std::string &str)
+{
+	for (auto it = str.begin(); it != str.end(); ++it) {
+		char ch = *it;
+		*it = upper(ch);
+	}
+}
+
 static bool chIsWhitespace(char ch)
 {
 	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
@@ -76,6 +94,24 @@ static bool strIsNumeric(std::string_view str)
 		return false;
 	}
 
+	if (str[0] == '\'') {
+		if (str.size() < 3) {
+			return false;
+		}
+
+		if (str[1] == '\\') {
+			if (str.size() != 4) {
+				return false;
+			}
+			return str[3] == '\'';
+		} else {
+			if (str.size() != 3) {
+				return false;
+			}
+			return str[2] == '\'';
+		}
+	}
+
 	if (str[0] == '-' || str[0] == '+') {
 		str = str.substr(1);
 	}
@@ -93,6 +129,26 @@ static int parseNumeric(std::string_view str)
 {
 	if (str.size() == 0) {
 		return 0;
+	}
+
+	if (str[0] == '\'') {
+		char ch = upper(str[1]);
+		if (ch == '\\') {
+			ch = str[2];
+			if (ch == 'n') {
+				return uint8_t('\n');
+			} else if (ch == 'r') {
+				return uint8_t('\r');
+			} else if (ch == 't') {
+				return uint8_t('\t');
+			} else if (ch == '0') {
+				return uint8_t(0);
+			} else {
+				return uint8_t(ch);
+			}
+		} else {
+			return uint8_t(str[1]);
+		}
 	}
 
 	int sign = 1;
@@ -116,17 +172,6 @@ static void skipSpace(Reader &r)
 {
 	while (chIsWhitespace(r.peek())) {
 		r.consume();
-	}
-}
-
-static void upper(std::string &str)
-{
-	for (auto it = str.begin(); it != str.end(); ++it) {
-		char ch = *it;
-		// a..z - 32 maps to A..Z in ASCII
-		if (ch >= 'a' && ch <= 'z') {
-			*it = ch -= 32;
-		}
 	}
 }
 
@@ -524,7 +569,7 @@ static int handleDirective(
 					return -1;
 				}
 
-				ch = r.peek();
+				ch = upper(r.peek());
 				r.consume();
 				if (ch == '\\' || ch == '"') {
 					data.push_back(ch);

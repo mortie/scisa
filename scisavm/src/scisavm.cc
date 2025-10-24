@@ -42,6 +42,10 @@ enum class SpecOp {
 	LSR = 0b001,
 	ROR = 0b010,
 	INC = 0b011,
+	LSP = 0b100,
+	SSP = 0b101,
+	LSW = 0b110,
+	SSW = 0b111,
 };
 
 template<typename T>
@@ -233,26 +237,44 @@ void step(CPU<T> &cpu, int n)
 			switch (SpecOp(paramMode)) {
 			case SpecOp::NOP:
 				break;
+
 			case SpecOp::LSR:
 				out = cpu.acc >> 1;
 				carry = cpu.acc & 0x01;
 				cpu.flags = { out, 0, 0, carry, &ZOp<T>::self };
 				cpu.acc = out;
 				break;
+
 			case SpecOp::ROR:
 				carry = cpu.acc & 0x01;
 				out = (cpu.acc >> 1) | (cpu.flags.carry() << (sizeof(T) * 8 - 1));
 				cpu.flags = { out, 0, 0, carry, &ZOp<T>::self };
 				cpu.acc = out;
 				break;
+
 			case SpecOp::INC:
 				out = cpu.acc + 1;
 				cpu.flags = { out, cpu.acc, 1, 0, &AddOp<T>::self };
 				cpu.acc = out;
 				break;
-			default:
-				cpu.error = "Bad special";
-				return;
+
+			case SpecOp::LSP:
+				cpu.acc = loadByte(cpu, T(cpu.sp - second));
+				cpu.flags = { cpu.acc, 0, 0, 0, &ZOp<T>::self };
+				break;
+
+			case SpecOp::SSP:
+				storeByte(cpu, T(cpu.sp - second), cpu.acc);
+				break;
+
+			case SpecOp::LSW:
+				cpu.acc = loadWord(cpu, T(cpu.sp - second));
+				cpu.flags = { cpu.acc, 0, 0, 0, &ZOp<T>::self };
+				break;
+
+			case SpecOp::SSW:
+				storeWord(cpu, T(cpu.sp - second), cpu.acc);
+				break;
 			}
 
 			break;
@@ -330,13 +352,8 @@ void step(CPU<T> &cpu, int n)
 			break;
 
 		case Op::LDW:
-			if constexpr (sizeof(T) > sizeof(uint8_t)) {
-				cpu.acc = loadWord(cpu, param);
-				cpu.flags = { cpu.y, 0, 0, 0, &ZOp<T>::self };
-			} else {
-				cpu.error = "Invalid instruction for bitness";
-				return;
-			}
+			cpu.acc = loadWord(cpu, param);
+			cpu.flags = { cpu.y, 0, 0, 0, &ZOp<T>::self };
 			break;
 
 		case Op::LDA:
@@ -349,12 +366,7 @@ void step(CPU<T> &cpu, int n)
 			break;
 
 		case Op::STW:
-			if constexpr (sizeof(T) > sizeof(uint8_t)) {
-				storeWord(cpu, param, cpu.acc);
-			} else {
-				cpu.error = "Invalid instruction for bitness";
-				return;
-			}
+			storeWord(cpu, param, cpu.acc);
 			break;
 
 		case Op::STA:

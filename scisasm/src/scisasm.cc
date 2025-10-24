@@ -195,6 +195,28 @@ static int emitSpecial(
 	return 0;
 }
 
+static int emitSpecialWithParam(
+	uint8_t lo, const std::string &param,
+	Assembly &a, const char **err)
+{
+	if (param == "") {
+		error(err, "Parameter expected");
+		return -1;
+	}
+
+	a.current().push_back(lo);
+
+	// Handle a constant number literal
+	if (strIsNumeric(param)) {
+		int num = parseNumeric(param);
+		a.current().push_back(uint8_t(num));
+		return 0;
+	}
+
+	error(err, "Bad parameter");
+	return -1;
+}
+
 enum Relativity {
 	RELATIVE,
 	ABSOLUTE,
@@ -361,6 +383,22 @@ static int emitInstr(
 
 	if (op == "INC") {
 		return emitSpecial(0b011, param, a, err);
+	}
+
+	if (op == "LSP") {
+		return emitSpecialWithParam(0b100, param, a, err);
+	}
+
+	if (op == "SSP") {
+		return emitSpecialWithParam(0b101, param, a, err);
+	}
+
+	if (op == "LSW") {
+		return emitSpecialWithParam(0b110, param, a, err);
+	}
+
+	if (op == "SSW") {
+		return emitSpecialWithParam(0b111, param, a, err);
 	}
 
 	if (op == "ROL") {
@@ -837,10 +875,21 @@ int disasm(std::span<const uint8_t> instr, std::string &out)
 		case 0b011:
 			out = "INC";
 			return 1;
+		case 0b100:
+			out = "LSP";
+			break;
+		case 0b101:
+			out = "SSP";
+			break;
+		case 0b110:
+			out = "LSW";
+			break;
+		case 0b111:
+			out = "SSW";
+			break;
 		}
 
-		out = "BAD SPECIAL";
-		return 1;
+		break;
 	case 0b00001:
 		out = "ADD";
 		break;

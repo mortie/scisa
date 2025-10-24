@@ -60,10 +60,10 @@ Instructions where `yyy` starts with a `1` bit are 2-byte.
 * `01011`: MHA\*\*, Move High A; A = param << 8
 * `01100`: SPS, Stack Pointer Set; SP = param
 * `01101`: LDX\*, Load X; X = \[value at memory address specified by param\]
-* `01110`: LDW\* \*\*, Load Word; A = \[2-byte value at memory address specified by param\]
+* `01110`: LDW\*, Load Word; A = \[2-byte value at memory address specified by param\]
 * `01111`: LDA\*, Load A; A = \[value at memory address specified by param\]
 * `10000`: STX, Store X; \[value at memory address specified by param\] = X
-* `10001`: STW\*\*, Store Word; \[2-byte value at memory address specified by param\] = A
+* `10001`: STW, Store Word; \[2-byte value at memory address specified by param\] = A
 * `10010`: STA, Store A; \[value at memory address specified by param\] = A
 * `10011`: JMP; Jump to \[param\].
 * `10100`: JLR, Jump and Link Register; Jump to \[param\], storing the return address in register Y
@@ -85,6 +85,10 @@ Special instructions:
 * `00000 001`: LSR\*, logical Shift Right; A = A >> 1, C = shifted-out bit
 * `00000 010`: ROR\*, Rotate Right; A = A >> 1, set low bit to C, C = shifted-out bit
 * `00000 011`: INC\*, Increment; A = A + 1
+* `00000 100`: LSP\*, Load relive to Stack Pointer; A = \[SP - next byte\]
+* `00000 101`: SSP, Store relive to Stack Pointer; \[SP - next byte\] = A
+* `00000 110`: LSW \*, Load Word relive to Stack Pointer; A = \[SP - next byte\]
+* `00000 111`: SSW, Store Word relive to Stack Pointer; \[SP - next byte\] = A
 
 Aliases:
 

@@ -17,10 +17,10 @@ enum class Op {
 	MHA = 0b01011,
 	SPS = 0b01100,
 	LDX = 0b01101,
-	LDY = 0b01110,
+	LDW = 0b01110,
 	LDA = 0b01111,
 	STX = 0b10000,
-	STY = 0b10001,
+	STW = 0b10001,
 	STA = 0b10010,
 	JMP = 0b10011,
 	JLR = 0b10100,
@@ -83,7 +83,7 @@ template<typename T>
 ZOp<T> ZOp<T>::self;
 
 template<typename T>
-T load(CPU<T> &cpu, T addr)
+uint8_t loadByte(CPU<T> &cpu, T addr)
 {
 	for (MappedIO<T> &io: cpu.io) {
 		if (addr >= io.start && addr < io.start + io.size) {
@@ -102,18 +102,51 @@ T load(CPU<T> &cpu, T addr)
 }
 
 template<typename T>
-void store(CPU<T> &cpu, T addr, T val)
+T loadWord(CPU<T> &cpu, T addr)
+{
+	for (MappedMem<T> &mem: cpu.dmem) {
+		if (addr >= mem.start && addr + sizeof(T) <= mem.start + mem.data.size()) {
+			T val = mem.data[addr - mem.start];
+			if constexpr (sizeof(T) > 1) {
+				val |= T(mem.data[addr - mem.start + 1]) << 8;
+			}
+			return val;
+		}
+	}
+
+	cpu.error = "Illegal load";
+	return 0;
+}
+
+template<typename T>
+void storeByte(CPU<T> &cpu, T addr, uint8_t val)
 {
 	for (MappedIO<T> &io: cpu.io) {
 		if (addr >= io.start && addr < io.start + io.size) {
-			io.io->store(addr - io.start, uint8_t(val));
+			io.io->store(addr - io.start, val);
 			return;
 		}
 	}
 
 	for (MappedMem<T> &mem: cpu.dmem) {
 		if (addr >= mem.start && addr < mem.start + mem.data.size()) {
-			mem.data[addr - mem.start] = uint8_t(val);
+			mem.data[addr - mem.start] = val;
+			return;
+		}
+	}
+
+	cpu.error = "Illegal store";
+}
+
+template<typename T>
+void storeWord(CPU<T> &cpu, T addr, T val)
+{
+	for (MappedMem<T> &mem: cpu.dmem) {
+		if (addr >= mem.start && addr + sizeof(T) <= mem.start + mem.data.size()) {
+			mem.data[addr - mem.start] = val & 0x00ff;
+			if (sizeof(T) > 1) {
+				mem.data[addr - mem.start + 1] = (val & 0xff00) >> 8;
+			}
 			return;
 		}
 	}
@@ -292,30 +325,40 @@ void step(CPU<T> &cpu, int n)
 			break;
 
 		case Op::LDX:
-			cpu.x = load(cpu, param);
+			cpu.x = loadByte(cpu, param);
 			cpu.flags = { cpu.x, 0, 0, 0, &ZOp<T>::self };
 			break;
 
-		case Op::LDY:
-			cpu.y = load(cpu, param);
-			cpu.flags = { cpu.y, 0, 0, 0, &ZOp<T>::self };
+		case Op::LDW:
+			if constexpr (sizeof(T) > sizeof(uint8_t)) {
+				cpu.acc = loadWord(cpu, param);
+				cpu.flags = { cpu.y, 0, 0, 0, &ZOp<T>::self };
+			} else {
+				cpu.error = "Invalid instruction for bitness";
+				return;
+			}
 			break;
 
 		case Op::LDA:
-			cpu.acc = load(cpu, param);
+			cpu.acc = loadByte(cpu, param);
 			cpu.flags = { cpu.acc, 0, 0, 0, &ZOp<T>::self };
 			break;
 
 		case Op::STX:
-			store(cpu, param, cpu.x);
+			storeByte(cpu, param, cpu.x);
 			break;
 
-		case Op::STY:
-			store(cpu, param, cpu.y);
+		case Op::STW:
+			if constexpr (sizeof(T) > sizeof(uint8_t)) {
+				storeWord(cpu, param, cpu.acc);
+			} else {
+				cpu.error = "Invalid instruction for bitness";
+				return;
+			}
 			break;
 
 		case Op::STA:
-			store(cpu, param, cpu.acc);
+			storeByte(cpu, param, cpu.acc);
 			break;
 
 		case Op::JMP:
@@ -380,13 +423,13 @@ void step(CPU<T> &cpu, int n)
 			break;
 
 		case Op::PUSH:
-			store(cpu, cpu.sp, param);
+			storeWord(cpu, cpu.sp, param);
 			cpu.sp += sizeof(T);
 			break;
 
 		case Op::POP:
 			cpu.sp -= sizeof(T);
-			out = load(cpu, cpu.sp);
+			out = loadWord(cpu, cpu.sp);
 			switch (paramMode) {
 			case 0b000:
 				break;

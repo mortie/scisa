@@ -60,10 +60,10 @@ Instructions where `yyy` starts with a `1` bit are 2-byte.
 * `01011`: MHA\*\*, Move High A; A = param << 8
 * `01100`: SPS, Stack Pointer Set; SP = param
 * `01101`: LDX\*, Load X; X = \[value at memory address specified by param\]
-* `01110`: LDY\*, Load Y; Y = \[value at memory address specified by param\]
+* `01110`: LDW\* \*\*, Load Word; A = \[2-byte value at memory address specified by param\]
 * `01111`: LDA\*, Load A; A = \[value at memory address specified by param\]
 * `10000`: STX, Store X; \[value at memory address specified by param\] = X
-* `10001`: STY, Store Y; \[value at memory address specified by param\] = Y
+* `10001`: STW\*\*, Store Word; \[2-byte value at memory address specified by param\] = A
 * `10010`: STA, Store A; \[value at memory address specified by param\] = A
 * `10011`: JMP; Jump to \[param\].
 * `10100`: JLR, Jump and Link Register; Jump to \[param\], storing the return address in register Y

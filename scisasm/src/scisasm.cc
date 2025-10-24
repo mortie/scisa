@@ -419,7 +419,7 @@ static int emitInstr(
 		return emitNormal(0b01101, param, ABSOLUTE, a, err);
 	}
 
-	if (op == "LDY") {
+	if (op == "LDW") {
 		return emitNormal(0b01110, param, ABSOLUTE, a, err);
 	}
 
@@ -431,7 +431,7 @@ static int emitInstr(
 		return emitNormal(0b10000, param, ABSOLUTE, a, err);
 	}
 
-	if (op == "STY") {
+	if (op == "STW") {
 		return emitNormal(0b10001, param, ABSOLUTE, a, err);
 	}
 
@@ -881,7 +881,7 @@ int disasm(std::span<const uint8_t> instr, std::string &out)
 		out = "LDX";
 		break;
 	case 0b01110:
-		out = "LDY";
+		out = "LDW";
 		break;
 	case 0b01111:
 		out = "LDA";
@@ -890,7 +890,7 @@ int disasm(std::span<const uint8_t> instr, std::string &out)
 		out = "STX";
 		break;
 	case 0b10001:
-		out = "STY";
+		out = "STW";
 		break;
 	case 0b10010:
 		out = "STA";

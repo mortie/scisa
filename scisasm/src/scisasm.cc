@@ -175,19 +175,12 @@ static void skipSpace(Reader &r)
 	}
 }
 
-static void error(const char **err, const char *msg)
-{
-	if (err) {
-		*err = msg;
-	}
-}
-
 static int emitSpecial(
 	uint8_t lo, const std::string &param,
 	Assembly &a, const char **err)
 {
 	if (param != "") {
-		error(err, "No parameter expected");
+		*err = "No parameter expected";
 		return -1;
 	}
 
@@ -200,7 +193,7 @@ static int emitSpecialWithParam(
 	Assembly &a, const char **err)
 {
 	if (param == "") {
-		error(err, "Parameter expected");
+		*err = "Parameter expected";
 		return -1;
 	}
 
@@ -213,7 +206,7 @@ static int emitSpecialWithParam(
 		return 0;
 	}
 
-	error(err, "Bad parameter");
+	*err = "Bad parameter";
 	return -1;
 }
 
@@ -224,12 +217,12 @@ enum Relativity {
 
 static int emitNormal(
 	uint8_t hi, const std::string &param, Relativity rel,
-	Assembly &a, const char **err)
+	Assembly &a, int linenum, const char **err)
 {
 	hi <<= 3;
 
 	if (param == "") {
-		error(err, "Parameter expected");
+		*err = "Parameter expected";
 		return -1;
 	}
 
@@ -273,6 +266,7 @@ static int emitNormal(
 
 		Relocation reloc = {
 			.index = a.current().size(),
+			.linenum = linenum,
 		};
 
 		switch (rel) {
@@ -309,7 +303,7 @@ static int emitNormal(
 			a.current().push_back(hi | 0b111);
 			break;
 		default:
-			error(err, "Bad register");
+			*err = "Bad register";
 			return -1;
 		}
 
@@ -317,7 +311,7 @@ static int emitNormal(
 		skipSpace(r);
 
 		if (r.peek() != '+') {
-			error(err, "Unsupported parameter");
+			*err = "Unsupported parameter";
 			return -1;
 		}
 		r.consume();
@@ -356,14 +350,14 @@ static int emitNormal(
 		}
 	}
 
-	error(err, "Unsupported parameter");
+	*err = "Unsupported parameter";
 	return -1;
 }
 
 static int emitInstr(
 	const std::string &op,
 	const std::string &param,
-	Assembly &a, const char **err)
+	Assembly &a, int linenum, const char **err)
 {
 	if (op == "NOP") {
 		return emitSpecial(0b000, param, a, err);
@@ -406,123 +400,123 @@ static int emitInstr(
 	}
 
 	if (op == "ADD") {
-		return emitNormal(0b00001, param, ABSOLUTE, a, err);
+		return emitNormal(0b00001, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "SUB") {
-		return emitNormal(0b00010, param, ABSOLUTE, a, err);
+		return emitNormal(0b00010, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "ADC") {
-		return emitNormal(0b00011, param, ABSOLUTE, a, err);
+		return emitNormal(0b00011, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "XOR") {
-		return emitNormal(0b00100, param, ABSOLUTE, a, err);
+		return emitNormal(0b00100, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "AND") {
-		return emitNormal(0b00101, param, ABSOLUTE, a, err);
+		return emitNormal(0b00101, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "OR") {
-		return emitNormal(0b00110, param, ABSOLUTE, a, err);
+		return emitNormal(0b00110, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "CMP") {
-		return emitNormal(0b00111, param, ABSOLUTE, a, err);
+		return emitNormal(0b00111, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "MVX") {
-		return emitNormal(0b01000, param, ABSOLUTE, a, err);
+		return emitNormal(0b01000, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "MVY") {
-		return emitNormal(0b01001, param, ABSOLUTE, a, err);
+		return emitNormal(0b01001, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "MVA") {
-		return emitNormal(0b01010, param, ABSOLUTE, a, err);
+		return emitNormal(0b01010, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "MHA") {
-		return emitNormal(0b01011, param, ABSOLUTE, a, err);
+		return emitNormal(0b01011, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "SPS") {
-		return emitNormal(0b01100, param, ABSOLUTE, a, err);
+		return emitNormal(0b01100, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "LDX") {
-		return emitNormal(0b01101, param, ABSOLUTE, a, err);
+		return emitNormal(0b01101, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "LDW") {
-		return emitNormal(0b01110, param, ABSOLUTE, a, err);
+		return emitNormal(0b01110, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "LDA") {
-		return emitNormal(0b01111, param, ABSOLUTE, a, err);
+		return emitNormal(0b01111, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "STX") {
-		return emitNormal(0b10000, param, ABSOLUTE, a, err);
+		return emitNormal(0b10000, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "STW") {
-		return emitNormal(0b10001, param, ABSOLUTE, a, err);
+		return emitNormal(0b10001, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "STA") {
-		return emitNormal(0b10010, param, ABSOLUTE, a, err);
+		return emitNormal(0b10010, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "JMP") {
-		return emitNormal(0b10011, param, ABSOLUTE, a, err);
+		return emitNormal(0b10011, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "JLR") {
-		return emitNormal(0b10100, param, ABSOLUTE, a, err);
+		return emitNormal(0b10100, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "B") {
-		return emitNormal(0b10101, param, RELATIVE, a, err);
+		return emitNormal(0b10101, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BCC" || op == "BGE") {
-		return emitNormal(0b10110, param, RELATIVE, a, err);
+		return emitNormal(0b10110, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BCS" || op == "BLT") {
-		return emitNormal(0b10111, param, RELATIVE, a, err);
+		return emitNormal(0b10111, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BEQ" || op == "BZS") {
-		return emitNormal(0b11000, param, RELATIVE, a, err);
+		return emitNormal(0b11000, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BNE" || op == "BZC") {
-		return emitNormal(0b11001, param, RELATIVE, a, err);
+		return emitNormal(0b11001, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BMI") {
-		return emitNormal(0b11010, param, RELATIVE, a, err);
+		return emitNormal(0b11010, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BPL") {
-		return emitNormal(0b11011, param, RELATIVE, a, err);
+		return emitNormal(0b11011, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BVS") {
-		return emitNormal(0b11100, param, RELATIVE, a, err);
+		return emitNormal(0b11100, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "BVC") {
-		return emitNormal(0b11101, param, RELATIVE, a, err);
+		return emitNormal(0b11101, param, RELATIVE, a, linenum, err);
 	}
 
 	if (op == "PUSH") {
-		return emitNormal(0b11110, param, ABSOLUTE, a, err);
+		return emitNormal(0b11110, param, ABSOLUTE, a, linenum, err);
 	}
 
 	if (op == "POP") {
@@ -546,11 +540,11 @@ static int emitInstr(
 			return 0;
 		}
 
-		error(err, "Unknown POP parameter");
+		*err = "Unknown POP parameter";
 		return -1;
 	}
 
-	error(err, "Unknown instruction");
+	*err = "Unknown instruction";
 	return -1;
 }
 
@@ -562,7 +556,7 @@ static int handleDirective(
 {
 	if (op == ".TEXT") {
 		if (param != "") {
-			error(err, "No parameter expected");
+			*err = "No parameter expected";
 			return -1;
 		}
 
@@ -572,7 +566,7 @@ static int handleDirective(
 
 	if (op == ".DATA") {
 		if (param != "") {
-			error(err, "No parameter expected");
+			*err = "No parameter expected";
 			return -1;
 		}
 
@@ -583,7 +577,7 @@ static int handleDirective(
 	if (op == ".ASCII" || op == ".STRING") {
 		Reader r(param);
 		if (r.peek() != '"') {
-			error(err, "Expected '\"'");
+			*err = "Expected '\"'";
 			return -1;
 		}
 		r.consume();
@@ -591,7 +585,7 @@ static int handleDirective(
 		auto &data = a.current();
 		while (true) {
 			if (r.eof()) {
-				error(err, "Unexpected EOF");
+				*err = "Unexpected EOF";
 				return -1;
 			}
 
@@ -603,7 +597,7 @@ static int handleDirective(
 
 			if (ch == '\\') {
 				if (r.eof()) {
-					error(err, "Unexpected EOF");
+					*err = "Unexpected EOF";
 					return -1;
 				}
 
@@ -620,7 +614,7 @@ static int handleDirective(
 				} else if (ch == '0') {
 					data.push_back(0);
 				} else {
-					error(err, "Unexpected escape");
+					*err = "Unexpected escape";
 					return -1;
 				}
 			} else {
@@ -630,7 +624,7 @@ static int handleDirective(
 
 		skipSpace(r);
 		if (!r.eof()) {
-			error(err, "Trailing garbage");
+			*err = "Trailing garbage";
 			return -1;
 		}
 
@@ -643,7 +637,7 @@ static int handleDirective(
 
 	if (op == ".BYTE") {
 		if (!strIsNumeric(param)) {
-			error(err, "Invalid parameter");
+			*err = "Invalid parameter";
 			return -1;
 		}
 
@@ -653,7 +647,7 @@ static int handleDirective(
 
 	if (op == ".WORD") {
 		if (!strIsNumeric(param)) {
-			error(err, "Invalid parameter");
+			*err = "Invalid parameter";
 			return -1;
 		}
 
@@ -666,7 +660,7 @@ static int handleDirective(
 	if (op == ".DEFINE") {
 		Reader r(param);
 		if (!chIsInitialIdent(r.peek())) {
-			error(err, "Invalid identifier");
+			*err = "Invalid identifier";
 			return -1;
 		}
 
@@ -685,12 +679,12 @@ static int handleDirective(
 		}
 
 		if (!strIsNumeric(val)) {
-			error(err, "Invalid value");
+			*err = "Invalid value";
 			return -1;
 		}
 
 		if (a.defines.contains(key)) {
-			error(err, "Duplicate define");
+			*err = "Duplicate define";
 			return -1;
 		}
 
@@ -698,16 +692,101 @@ static int handleDirective(
 		return 0;
 	}
 
-	error(err, "Invalid directive");
+	*err = "Invalid directive";
 	return -1;
 }
 
-int assemble(std::istream &is, Assembly &a, const char **err)
+static int assembleLine(Assembly &a, Reader r, int linenum, const char **err)
 {
-	std::string line;
 	std::string op;
 	std::string param;
+
+	skipSpace(r);
+	if (r.eof()) {
+		return 0;
+	}
+
+	op.clear();
+	if (chIsInitialIdent(r.peek()) || r.peek() == '.') {
+		do {
+			op += r.peek();
+			r.consume();
+		} while (chIsIdent(r.peek()));
+	}
+	upper(op);
+
+	skipSpace(r);
+
+	if (r.peek() == ':') {
+		if (!strIsIdent(op)) {
+			*err = "Invalid label name";
+			return -1;
+		}
+
+		r.consume();
+		skipSpace(r);
+		if (!r.eof()) {
+			*err = "Unexpected trailing garbage after label";
+			return -1;
+		}
+
+		if (a.labels.contains(op)) {
+			*err = "Duplicate label";
+			return -1;
+		}
+
+		a.labels[op] = {
+			.offset = a.current().size(),
+			.section = a.currentSection,
+		};
+		return 0;
+	}
+
+	param.clear();
+	size_t lastNonWhitespace = 0;
+	while (!r.eof()) {
+		char ch = r.peek();
+		if (!chIsWhitespace(ch)) {
+			lastNonWhitespace = param.size();
+		}
+
+		param += ch;
+		r.consume();
+	}
+
+	if (lastNonWhitespace < param.size()) {
+		param.erase(lastNonWhitespace + 1);
+	}
+
+	skipSpace(r);
+	if (!r.eof()) {
+		*err = "Unexpected trailing garbage after instruction";
+		return -1;
+	}
+
+	if (op[0] == '.') {
+		if (handleDirective(op, param, a, err) < 0) {
+			return -1;
+		}
+
+		return 0;
+	}
+
+	upper(param);
+	if (emitInstr(op, param, a, linenum, err) < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
+int assemble(std::istream &is, Assembly &a, std::string *err)
+{
+	int linenum = 0;
+
+	std::string line;
 	while (std::getline(is, line)) {
+		linenum += 1;
 		for (size_t i = 0; i < line.size(); ++i) {
 			if (line[i] == ';') {
 				line.erase(i);
@@ -716,80 +795,14 @@ int assemble(std::istream &is, Assembly &a, const char **err)
 		}
 
 		Reader r(line);
-
-		skipSpace(r);
-		if (r.eof()) {
-			continue;
-		}
-
-		op.clear();
-		if (chIsInitialIdent(r.peek()) || r.peek() == '.') {
-			do {
-				op += r.peek();
-				r.consume();
-			} while (chIsIdent(r.peek()));
-		}
-		upper(op);
-
-		skipSpace(r);
-
-		if (r.peek() == ':') {
-			if (!strIsIdent(op)) {
-				error(err, "Invalid label name");
-				return -1;
+		const char *errStr;
+		if (assembleLine(a, r, linenum, &errStr) < 0) {
+			if (err) {
+				*err = "Line ";
+				*err += std::to_string(linenum);
+				*err += ": ";
+				*err += errStr;
 			}
-
-			r.consume();
-			skipSpace(r);
-			if (!r.eof()) {
-				error(err, "Unexpected trailing garbage after label");
-				return -1;
-			}
-
-			if (a.labels.contains(op)) {
-				error(err, "Duplicate label");
-				return -1;
-			}
-
-			a.labels[op] = {
-				.offset = a.current().size(),
-				.section = a.currentSection,
-			};
-			continue;
-		}
-
-		param.clear();
-		size_t lastNonWhitespace = 0;
-		while (!r.eof()) {
-			char ch = r.peek();
-			if (!chIsWhitespace(ch)) {
-				lastNonWhitespace = param.size();
-			}
-
-			param += ch;
-			r.consume();
-		}
-
-		if (lastNonWhitespace < param.size()) {
-			param.erase(lastNonWhitespace + 1);
-		}
-
-		skipSpace(r);
-		if (!r.eof()) {
-			error(err, "Unexpected trailing garbage after instruction");
-			return -1;
-		}
-
-		if (op[0] == '.') {
-			if (handleDirective(op, param, a, err) < 0) {
-				return -1;
-			}
-
-			continue;
-		}
-
-		upper(param);
-		if (emitInstr(op, param, a, err) < 0) {
 			return -1;
 		}
 	}
@@ -797,14 +810,20 @@ int assemble(std::istream &is, Assembly &a, const char **err)
 	return 0;
 }
 
-int link(Assembly &a, const char **err)
+int link(Assembly &a, std::string *err)
 {
 	for (auto &reloc: a.relocations) {
 		auto &sub = reloc.substitute;
 		if (auto *r = std::get_if<Relocation::Relative>(&sub); r) {
 			auto it = a.labels.find(r->label);
 			if (it == a.labels.end()) {
-				error(err, "Invalid relative relocation");
+				if (err) {
+					*err = "Line ";
+					*err += std::to_string(reloc.linenum);
+					*err += ": Invalid relative relocation '";
+					*err += r->label;
+					*err += '\'';
+				}
 				return -1;
 			}
 
@@ -815,7 +834,13 @@ int link(Assembly &a, const char **err)
 				(int(reloc.index) + r->offset);
 
 			if (rel > 127 || rel < -128) {
-				error(err, "Relative relocation out of range");
+				if (err) {
+					*err = "Line ";
+					*err += std::to_string(reloc.linenum);
+					*err += ": Relative relocation '";
+					*err += r->label;
+					*err += "' out of range";
+				}
 				return -1;
 			}
 
@@ -826,7 +851,13 @@ int link(Assembly &a, const char **err)
 		if (auto *r = std::get_if<Relocation::Absolute>(&sub); r) {
 			auto it = a.labels.find(r->label);
 			if (it == a.labels.end()) {
-				error(err, "Invalid absolute relocation");
+				if (err) {
+					*err = "Line ";
+					*err += std::to_string(reloc.linenum);
+					*err += ": Unknown absolute relocation '";
+					*err += r->label;
+					*err += '\'';
+				}
 				return -1;
 			}
 
@@ -834,7 +865,13 @@ int link(Assembly &a, const char **err)
 			size_t abs = it->second.offset + section.offset;
 
 			if (abs > 255) {
-				error(err, "Absolute relocation out of range");
+				if (err) {
+					*err = "Line ";
+					*err += std::to_string(reloc.linenum);
+					*err += ": Absolute relocation '";
+					*err += r->label;
+					*err += "' out of range";
+				}
 				return -1;
 			}
 
@@ -843,7 +880,11 @@ int link(Assembly &a, const char **err)
 		}
 
 		// We should never get here
-		error(err, "Invalid relocation type");
+		if (err) {
+			*err = "Line ";
+			*err += std::to_string(reloc.linenum);
+			*err += ": Invalid relocation type";
+		}
 		return -1;
 	}
 

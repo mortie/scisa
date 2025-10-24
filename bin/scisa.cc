@@ -166,7 +166,7 @@ static int assemble(std::istream &is, std::ostream &os)
 	}
 
 	scisasm::Assembly a;
-	const char *err;
+	std::string err;
 	if (scisasm::assemble(is, a, &err) < 0) {
 		std::cerr << "Assembler error: " << err << '\n';
 		return 1;

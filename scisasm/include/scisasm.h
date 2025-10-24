@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <optional>
 
 namespace scisasm {
 
@@ -20,6 +21,7 @@ struct Relocation {
 	};
 
 	size_t index;
+	int linenum;
 	std::variant<Relative, Absolute> substitute;
 };
 
@@ -48,8 +50,13 @@ struct Assembly {
 	std::vector<Relocation> relocations;
 };
 
-int assemble(std::istream &is, Assembly &a, const char **err);
-int link(Assembly &a, const char **err);
+struct Result {
+	const char *error;
+	int line;
+};
+
+int assemble(std::istream &is, Assembly &a, std::string *err);
+int link(Assembly &a, std::string *err);
 int disasm(std::span<const uint8_t> instr, std::string &out);
 
 }

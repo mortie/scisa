@@ -11,7 +11,7 @@ libscisavm = declare_dependency(
   link_with: library('scisavm',
     'scisavm/src/scisavm.cc',
     install: true,
-    include_directories: ['scisavm/include']
+    include_directories: ['scisavm/include'],
   ),
 )
 install_headers(
@@ -25,7 +25,7 @@ libscisasm = declare_dependency(
   link_with: library('scisasm',
     'scisasm/src/scisasm.cc',
     install: true,
-    include_directories: ['scisasm/include']
+    include_directories: ['scisasm/include'],
   ),
 )
 install_headers(

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <span>
 #include <vector>
+#include <cstdlib>
 
 namespace scisavm {
 

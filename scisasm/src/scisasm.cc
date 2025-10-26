@@ -267,6 +267,7 @@ static int emitNormal(
 		Relocation reloc = {
 			.index = a.current().size(),
 			.linenum = linenum,
+			.substitute = std::monostate{},
 		};
 
 		switch (rel) {
@@ -329,6 +330,7 @@ static int emitNormal(
 
 			Relocation reloc = {
 				.index = a.current().size(),
+				.linenum = linenum,
 				.substitute = Relocation::Absolute {
 					.label = param,
 				},

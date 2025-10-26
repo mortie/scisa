@@ -2,12 +2,12 @@
 #define SCISASM_H
 
 #include <istream>
-#include <span>
 #include <string>
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include <optional>
+#include <span>
+#include <cstdint>
 
 namespace scisasm {
 
@@ -22,7 +22,7 @@ struct Relocation {
 
 	size_t index;
 	int linenum;
-	std::variant<Relative, Absolute> substitute;
+	std::variant<std::monostate, Relative, Absolute> substitute;
 };
 
 struct Section {
